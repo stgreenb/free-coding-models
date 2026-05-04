@@ -586,7 +586,7 @@ describe('provider key test model discovery', () => {
   it('prioritizes the SambaNova override ahead of discovered and static ids', () => {
     assert.deepEqual(
       listProviderTestModels('sambanova', sources.sambanova, ['Qwen3-235B', 'DeepSeek-V3.1']).slice(0, 4),
-      ['MiniMax-M2.5', 'DeepSeek-V3.1', 'Qwen3-235B', 'Llama-4-Maverick-17B-128E-Instruct']
+      ['MiniMax-M2.5', 'DeepSeek-V3.1', 'DeepSeek-V3.2', 'Qwen3-235B']
     )
   })
 
@@ -4336,8 +4336,8 @@ describe('sync-set', () => {
       const candidates = buildSyncCandidates({ openrouter: 'key' })
       for (const c of candidates) {
         if (c.provider === 'openrouter') {
-          assert.ok(c.model.endsWith(':free'),
-            `OpenRouter model ${c.model} should end with :free`)
+          assert.ok(c.model.endsWith(':free') || c.model === 'openrouter/free' || c.model === 'openrouter/owl-alpha',
+            `OpenRouter model ${c.model} should be a free model`)
         }
       }
     })

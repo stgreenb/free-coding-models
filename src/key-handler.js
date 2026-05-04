@@ -58,9 +58,10 @@ import {
 // 📖 Some providers need an explicit probe model because the first catalog entry
 // 📖 is not guaranteed to be accepted by their chat endpoint.
 const PROVIDER_TEST_MODEL_OVERRIDES = {
-  sambanova: ['MiniMax-M2.5', 'DeepSeek-V3.1'],
+  sambanova: ['MiniMax-M2.5', 'DeepSeek-V3.1', 'DeepSeek-V3.2'],
   nvidia: ['deepseek-ai/deepseek-v4-flash', 'openai/gpt-oss-120b'],
   'github-models': ['openai/gpt-4.1-mini'],
+  mistral: ['mistral-small-latest', 'devstral-small-latest'],
 }
 
 // 📖 Settings key tests retry retryable failures across several models so a
@@ -80,6 +81,7 @@ const PROVIDER_AUTH_ENDPOINTS = {
   cerebras:     { url: 'https://api.cerebras.ai/v1/models',          method: 'GET' },
   sambanova:    { url: 'https://api.sambanova.ai/v1/models',         method: 'GET' },
   openrouter:   { url: 'https://openrouter.ai/api/v1/models',        method: 'GET' },
+  mistral:      { url: 'https://api.mistral.ai/v1/models',           method: 'GET' },
   huggingface:  { url: 'https://router.huggingface.co/v1/models',    method: 'GET' },
   deepinfra:    { url: 'https://api.deepinfra.com/v1/models',        method: 'GET' },
   fireworks:   { url: 'https://api.fireworks.ai/v1/models',         method: 'GET' },

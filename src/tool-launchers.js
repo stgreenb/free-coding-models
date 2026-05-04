@@ -202,6 +202,7 @@ const JCODE_NATIVE_PROVIDERS = {
   openrouter: { provider: 'openrouter',    envKey: 'OPENROUTER_API_KEY' },
   perplexity: { provider: 'perplexity',    envKey: 'PERPLEXITY_API_KEY' },
   zai:        { provider: 'zai',           envKey: 'ZHIPU_API_KEY' },
+  mistral:    { provider: 'mistral',       envKey: 'MISTRAL_API_KEY' },
   codestral:  { provider: 'mistral',       envKey: 'MISTRAL_API_KEY' },
 }
 

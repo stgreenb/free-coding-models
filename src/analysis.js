@@ -138,32 +138,45 @@ export function filterByTierOrExit(results, tierLetter) {
 const OPENROUTER_TIER_MAP = {
   'qwen/qwen3-coder':                         ['S+', '70.6%'],
   'mistralai/devstral-2':                      ['S+', '72.2%'],
-  'stepfun/step-3.5-flash':                    ['S+', '74.4%'],
-  'deepseek/deepseek-r1-0528':                 ['S',  '61.0%'],
+  'minimax/minimax-m2.5':                      ['S+', '74.0%'],
+  'z-ai/glm-4.5-air':                          ['S+', '72.0%'],
+  'tencent/hy3-preview':                       ['S+', '70.0%'],
+  'poolside/laguna-m.1':                       ['S+', '70.0%'],
+  'poolside/laguna-xs.2':                      ['S+', '70.0%'],
   'qwen/qwen3-next-80b-a3b-instruct':          ['S',  '65.0%'],
   'openai/gpt-oss-120b':                       ['S',  '60.0%'],
+  'inclusionai/ling-2.6-1t':                   ['S',  '60.0%'],
+  'nvidia/nemotron-3-super-120b-a12b':         ['A+', '56.0%'],
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': ['A+', '52.0%'],
   'openai/gpt-oss-20b':                        ['A',  '42.0%'],
   'nvidia/nemotron-3-nano-30b-a3b':            ['A',  '43.0%'],
   'meta-llama/llama-3.3-70b-instruct':         ['A-', '39.5%'],
-  'mimo-v2-flash':                             ['A',  '45.0%'],
+  'google/gemma-4-31b-it':                     ['A',  '45.0%'],
+  'google/gemma-4-26b-a4b-it':                 ['A-', '38.0%'],
   'google/gemma-3-27b-it':                     ['A-', '36.0%'],
   'google/gemma-3-12b-it':                     ['B+', '30.0%'],
   'google/gemma-3-4b-it':                      ['B',  '22.0%'],
   'google/gemma-3n-e4b-it':                    ['B',  '22.0%'],
   'google/gemma-3n-e2b-it':                    ['B',  '18.0%'],
   'meta-llama/llama-3.2-3b-instruct':          ['B',  '20.0%'],
-  'mistralai/mistral-small-3.1-24b-instruct':  ['A-', '35.0%'],
-  'qwen/qwen3-4b':                             ['B',  '22.0%'],
   'nousresearch/hermes-3-llama-3.1-405b':      ['A',  '40.0%'],
   'nvidia/nemotron-nano-9b-v2':                ['B+', '28.0%'],
   'nvidia/nemotron-nano-12b-v2-vl':            ['B+', '30.0%'],
-  'z-ai/glm-4.5-air':                          ['A-', '38.0%'],
-  'arcee-ai/trinity-large-preview':             ['A',  '40.0%'],
-  'arcee-ai/trinity-mini':                      ['B+', '28.0%'],
-  'upstage/solar-pro-3':                       ['A-', '35.0%'],
   'cognitivecomputations/dolphin-mistral-24b-venice-edition': ['B+', '28.0%'],
   'liquid/lfm-2.5-1.2b-thinking':              ['B',  '18.0%'],
   'liquid/lfm-2.5-1.2b-instruct':              ['B',  '18.0%'],
+  'openrouter/free':                           ['B',  '25.0%'],
+  'openrouter/owl-alpha':                      ['A+', '50.0%'],
+}
+
+function isOpenRouterFreeModel(model) {
+  if (!model?.id) return false
+  if (model.id.endsWith(':free')) return true
+  const promptPrice = Number(model.pricing?.prompt)
+  const completionPrice = Number(model.pricing?.completion)
+  return Number.isFinite(promptPrice) && Number.isFinite(completionPrice)
+    && promptPrice === 0
+    && completionPrice === 0
 }
 
 // 📖 fetchOpenRouterFreeModels: Fetch live free models from OpenRouter API.
@@ -186,7 +199,7 @@ export async function fetchOpenRouterFreeModels() {
     const json = await res.json()
     if (!json.data || !Array.isArray(json.data)) return null
 
-    const freeModels = json.data.filter(m => m.id && m.id.endsWith(':free'))
+    const freeModels = json.data.filter(isOpenRouterFreeModel)
 
     return freeModels.map(m => {
       const baseId = m.id.replace(/:free$/, '')

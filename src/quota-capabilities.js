@@ -29,7 +29,7 @@
  * @property {'header'|'endpoint'|'unknown'} telemetryType
  * @property {boolean} [supportsEndpoint]
  * @property {'percent'|'ok'} usageDisplay
- * @property {'rolling'|'daily'|'unknown'|'none'} resetCadence
+ * @property {'rolling'|'daily'|'monthly'|'unknown'|'none'} resetCadence
  */
 
 /** @type {Record<string, ProviderCapability>} */
@@ -40,6 +40,7 @@ export const PROVIDER_CAPABILITIES = {
   cerebras: { telemetryType: 'header', supportsEndpoint: false, usageDisplay: 'percent', resetCadence: 'unknown' },
   sambanova: { telemetryType: 'header', supportsEndpoint: false, usageDisplay: 'percent', resetCadence: 'unknown' },
   'github-models': { telemetryType: 'header', supportsEndpoint: false, usageDisplay: 'percent', resetCadence: 'unknown' },
+  mistral: { telemetryType: 'header', supportsEndpoint: false, usageDisplay: 'percent', resetCadence: 'monthly' },
   scaleway: { telemetryType: 'header', supportsEndpoint: false, usageDisplay: 'percent', resetCadence: 'unknown' },
   googleai: { telemetryType: 'header', supportsEndpoint: false, usageDisplay: 'percent', resetCadence: 'daily' },
   codestral: { telemetryType: 'header', supportsEndpoint: false, usageDisplay: 'percent', resetCadence: 'daily' },

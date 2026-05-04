@@ -46,6 +46,7 @@ export const ENV_VAR_NAMES = {
   sambanova:  'SAMBANOVA_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
   'github-models': 'GITHUB_TOKEN',
+  mistral:    'MISTRAL_API_KEY',
   codestral:  'MISTRAL_API_KEY',
   scaleway:   'SCALEWAY_API_KEY',
   googleai:   'GOOGLE_API_KEY',
@@ -113,6 +114,13 @@ export const PROVIDER_METADATA = {
     signupUrl: 'https://models.github.ai',
     signupHint: 'Use a GitHub token with Models access (GITHUB_TOKEN works in GitHub contexts)',
     rateLimits: 'Quota depends on GitHub/Copilot tier; no separate provider billing',
+  },
+  mistral: {
+    label: 'Mistral La Plateforme',
+    color: chalk.rgb(255, 196, 120),
+    signupUrl: 'https://console.mistral.ai/api-keys',
+    signupHint: 'La Plateforme → API keys (MISTRAL_API_KEY)',
+    rateLimits: 'Experiment plan: free evaluation tier with limited RPS/TPM/monthly tokens',
   },
   huggingface: {
     label: 'Hugging Face Inference',

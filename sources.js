@@ -29,7 +29,7 @@
  *   📖 Secondary: https://swe-rebench.com (independent evals, scores are lower)
  *   📖 Leaderboard tracker: https://www.marc0.dev/en/leaderboard
  *
- *   @exports nvidiaNim, groq, cerebras, sambanova, openrouter, githubModels, codestral, scaleway, googleai, zai, qwen, cloudflare, ovhcloud, gemini, opencodeZen — model arrays per active provider
+ *   @exports nvidiaNim, groq, cerebras, sambanova, openrouter, githubModels, mistral, codestral, scaleway, googleai, zai, qwen, cloudflare, ovhcloud, gemini, opencodeZen — model arrays per active provider
  *   @exports sources — map of active free/free-limited providers, each with { name, url, models }
 
  *   @exports MODELS — flat array of [modelId, label, tier, sweScore, ctx, providerKey]
@@ -122,6 +122,7 @@ export const sambanova = [
   ['MiniMax-M2.5',                         'MiniMax M2.5',       'S+', '74.0%', '160k'],
   // ── S tier ──
   ['DeepSeek-V3.1',                        'DeepSeek V3.1',      'S',  '62.0%', '128k'],
+  ['DeepSeek-V3.2',                        'DeepSeek V3.2',      'S+', '70.0%', '32k'],
   ['Llama-4-Maverick-17B-128E-Instruct',   'Llama 4 Maverick',   'S',  '62.0%', '1M'],
   ['gpt-oss-120b',                         'GPT OSS 120B',       'S',  '60.0%', '128k'],
   // ── A- tier ──
@@ -143,6 +144,7 @@ export const openrouter = [
   ['qwen/qwen3-coder:free',                     'Qwen3 Coder 480B',   'S+', '70.6%', '262k'],
   ['minimax/minimax-m2.5:free',                 'MiniMax M2.5',       'S+', '74.0%', '197k'],
   ['z-ai/glm-4.5-air:free',                     'GLM 4.5 Air',        'S+', '72.0%', '131k'],
+  ['tencent/hy3-preview:free',                   'Tencent HY3 Preview','S+', '-',     '262k'],
   ['poolside/laguna-m.1:free',                  'Poolside Laguna M.1', 'S+', '-',     '256k'],
   ['poolside/laguna-xs.2:free',                 'Poolside Laguna XS.2','S+', '-',     '256k'],
   // ── S tier — live :free chat/coding models ──
@@ -198,6 +200,19 @@ export const githubModels = [
   ['mistral-ai/mistral-medium-2505',              'Mistral Medium 2505', 'A',  '48.0%', '128k'],
   ['mistral-ai/mistral-small-2503',               'Mistral Small 2503',  'B+', '30.0%', '128k'],
   ['mistral-ai/ministral-3b',                     'Ministral 3B',        'C',  '-',     '32k'],
+]
+
+// 📖 Mistral La Plateforme source - https://console.mistral.ai
+// 📖 Experiment plan is free for evaluation/prototyping and exposes general + coding models.
+// 📖 Keep Codestral as a separate provider key for backward compatibility with existing configs.
+export const mistral = [
+  ['mistral-large-latest',                        'Mistral Large',       'S+', '70.0%', '256k'],
+  ['mistral-medium-latest',                       'Mistral Medium',      'S',  '66.0%', '128k'],
+  ['mistral-small-latest',                        'Mistral Small',       'A',  '48.0%', '128k'],
+  ['devstral-medium-latest',                      'Devstral Medium',     'S+', '72.2%', '128k'],
+  ['devstral-small-latest',                       'Devstral Small',      'A+', '55.0%', '128k'],
+  ['magistral-medium-latest',                     'Magistral Medium',    'A+', '52.0%', '128k'],
+  ['magistral-small-latest',                      'Magistral Small',     'A',  '45.0%', '128k'],
 ]
 
 // 📖 Mistral Codestral source - https://codestral.mistral.ai
@@ -366,6 +381,11 @@ export const sources = {
     name: 'GitHub Models',
     url: 'https://models.github.ai/inference/chat/completions',
     models: githubModels,
+  },
+  mistral: {
+    name: 'Mistral La Plateforme',
+    url: 'https://api.mistral.ai/v1/chat/completions',
+    models: mistral,
   },
   cloudflare: {
     name: 'Cloudflare AI',

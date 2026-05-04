@@ -596,6 +596,14 @@ MIT © [vava](https://github.com/vava-nessa)
 | [Cloudflare Workers AI](https://dash.cloudflare.com) | 10K neurons/day | Llama 3.3 70B, QwQ 32B, 47+ models |
 | [OVHcloud AI Endpoints](https://endpoints.ai.cloud.ovh.net) | 2 req/min/IP sandbox | GPT-OSS, Qwen3, Mistral |
 
+### 🧪 Good Candidates Kept Outside the Core Catalog
+
+| Provider | Why it is not core |
+|----------|--------------------|
+| [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) | Useful gateway with included credits, but it is a router/billing layer, not a provider of permanently free models. |
+| [Cohere](https://cohere.com/) | Real evaluation key, but the allowance is small and the catalog is not coding-first enough for the default TUI. |
+| [Ollama Cloud](https://ollama.com/pricing) | Interesting for light cloud usage, but it is closer to hosted Ollama capacity than a classic OpenAI-compatible free provider. |
+
 ### 💰 Providers with Trial Credits
 
 | Provider | Credits | Duration |

@@ -64,6 +64,11 @@ const DEFAULT_EXCLUDE_PATTERNS = [
 // 📖 which breaks structured parsing in coding tools.
 const EXCLUDED_PROVIDERS = new Set(['googleai'])
 
+const OPENROUTER_FREE_MODEL_IDS = new Set([
+  'openrouter/free',
+  'openrouter/owl-alpha',
+])
+
 /**
  * Check whether a provider's catalog entry supports routing (has a
  * chat/completions URL and is not CLI-only).
@@ -87,6 +92,10 @@ function resolveUrl(providerKey) {
  */
 function normalizeModelId(providerKey, modelId) {
   return providerKey === 'zai' ? String(modelId).replace(/^zai\//, '') : String(modelId)
+}
+
+function isOpenRouterFreeModelId(modelId) {
+  return String(modelId).endsWith(':free') || OPENROUTER_FREE_MODEL_IDS.has(String(modelId))
 }
 
 /**
@@ -119,7 +128,7 @@ function shouldSkipModel(provider, modelId, tier, swePercent, options = {}) {
   if (swePercent < (options.minSwePercent || 40)) return true
 
   // 📖 For OpenRouter, only consider free models unless the user opts in
-  if (provider === 'openrouter' && !modelId.endsWith(':free') && !options.includePaidOpenRouter) return true
+  if (provider === 'openrouter' && !isOpenRouterFreeModelId(modelId) && !options.includePaidOpenRouter) return true
 
   const excludePatterns = options.excludePatterns || DEFAULT_EXCLUDE_PATTERNS
   for (const pattern of excludePatterns) {
