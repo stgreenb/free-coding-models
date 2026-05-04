@@ -531,13 +531,17 @@ MIT © [vava](https://github.com/vava-nessa)
   <a href="https://github.com/whit3rabbit"><img src="https://avatars.githubusercontent.com/u/12357518?v=4&s=60" width="60" height="60" style="border-radius:50%" alt="whit3rabbit"></a>
   <a href="https://github.com/skylaweber"><img src="https://avatars.githubusercontent.com/u/172871734?v=4&s=60" width="60" height="60" style="border-radius:50%" alt="skylaweber"></a>
   <a href="https://github.com/PhucTruong-ctrl"><img src="https://github.com/PhucTruong-ctrl.png?s=60" width="60" height="60" style="border-radius:50%" alt="PhucTruong-ctrl"></a>
+  <a href="https://github.com/chindris-mihai-alexandru"><img src="https://avatars.githubusercontent.com/u/12643176?v=4&s=60" width="60" height="60" style="border-radius:50%" alt="chindris-mihai-alexandru"></a>
+  <a href="https://github.com/serajbaltu"><img src="https://avatars.githubusercontent.com/u/90699173?v=4&s=60" width="60" height="60" style="border-radius:50%" alt="serajbaltu"></a>
   <br>
   <sub>
     <a href="https://github.com/vava-nessa">vava-nessa</a> &middot;
     <a href="https://github.com/erwinh22">erwinh22</a> &middot;
     <a href="https://github.com/whit3rabbit">whit3rabbit</a> &middot;
     <a href="https://github.com/skylaweber">skylaweber</a> &middot;
-    <a href="https://github.com/PhucTruong-ctrl">PhucTruong-ctrl</a>
+    <a href="https://github.com/PhucTruong-ctrl">PhucTruong-ctrl</a> &middot;
+    <a href="https://github.com/chindris-mihai-alexandru">chindris-mihai-alexandru</a> &middot;
+    <a href="https://github.com/serajbaltu">serajbaltu</a>
   </sub>
 </p>
 
