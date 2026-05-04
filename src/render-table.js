@@ -620,11 +620,11 @@ export function renderTable(results, pendingPings, frame, cursor = null, sortCol
         verdictColor = (text) => chalk.bold.rgb(...getTierRgb('B'))(text)
         break
       case 'Unstable':
-        verdictText = 'Unstable ⚠️'
+        verdictText = 'Unstable  ⚠️'
         verdictColor = themeColors.errorBold
         break
       case 'Not Active':
-        verdictText = 'Not Active 👻'
+        verdictText = 'Not Active  👻'
         verdictColor = themeColors.dim
         break
       case 'Pending':
