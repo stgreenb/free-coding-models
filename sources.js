@@ -47,7 +47,7 @@ export const nvidiaNim = [
   ['deepseek-ai/deepseek-v4-pro',                  'DeepSeek V4 Pro',     'S+', '73.1%', '128k'],
   ['deepseek-ai/deepseek-v4-flash',                'DeepSeek V4 Flash',   'S+', '72.0%', '128k'],
   ['z-ai/glm4.7',                                  'GLM 4.7',             'S+', '73.8%', '200k'],
-  ['moonshotai/kimi-k2-thinking',                  'Kimi K2 Thinking',    'S+', '71.3%', '256k'],
+  ['moonshotai/kimi-k2-thinking',                  'Kimi K2 Thinking',    'S+', '71.3%', '256k'], // ⚠️ Deprecation pending
   ['minimaxai/minimax-m2.5',                       'MiniMax M2.5',        'S+', '80.2%', '200k'],
   ['stepfun-ai/step-3.5-flash',                    'Step 3.5 Flash',      'S+', '74.4%', '256k'],
   ['qwen/qwen3-coder-480b-a35b-instruct',          'Qwen3 Coder 480B',    'S+', '70.6%', '256k'],
@@ -109,7 +109,7 @@ export const groq = [
 // 📖 Free API keys available at https://cloud.cerebras.ai
 export const cerebras = [
   ['gpt-oss-120b',                         'GPT OSS 120B',       'S',  '60.0%', '128k'],
-  ['qwen-3-235b-a22b-instruct-2507',       'Qwen3 235B',         'S+', '70.0%', '128k'],
+  ['qwen-3-235b-a22b-instruct-2507',       'Qwen3 235B',         'S+', '70.0%', '128k'], // ⚠️ Deprecation: May 27, 2026
   ['llama3.1-8b',                          'Llama 3.1 8B',       'B',  '28.8%', '128k'],
   ['zai-glm-4.7',                          'GLM 4.7',            'S+', '73.8%', '200k'],
 ]
@@ -122,7 +122,6 @@ export const sambanova = [
   ['MiniMax-M2.5',                         'MiniMax M2.5',       'S+', '74.0%', '160k'],
   // ── S tier ──
   ['DeepSeek-V3.1',                        'DeepSeek V3.1',      'S',  '62.0%', '128k'],
-  ['DeepSeek-V3.2',                        'DeepSeek V3.2',      'S+', '73.1%', '8k'],
   ['Llama-4-Maverick-17B-128E-Instruct',   'Llama 4 Maverick',   'S',  '62.0%', '1M'],
   ['gpt-oss-120b',                         'GPT OSS 120B',       'S',  '60.0%', '128k'],
   // ── A- tier ──
@@ -334,8 +333,8 @@ export const opencodeZen = [
   ['gpt-5-nano',                              'GPT 5 Nano',          'S',  '65.0%', '400k'],
   ['hy3-preview-free',                        'HY3 Preview Free',    'A+', '-',     '128k'],
   ['ling-2.6-flash-free',                     'Ling 2.6 Flash Free', 'S',  '-',     '128k'],
-  ['trinity-large-preview-free',              'Trinity Large Preview','S',  '-',     '128k'],
   ['trinity-mini-free',                       'Trinity Mini Preview', 'A',  '-',     '128k'],
+  ['trinity-large-preview-free',              'Trinity Large Preview','S',  '-',     '128k'],
 ]
 
 // 📖 All sources combined - used by the main script

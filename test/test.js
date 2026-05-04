@@ -585,7 +585,7 @@ describe('provider key test model discovery', () => {
   it('prioritizes the SambaNova override ahead of discovered and static ids', () => {
     assert.deepEqual(
       listProviderTestModels('sambanova', sources.sambanova, ['Qwen3-235B', 'DeepSeek-V3.1']).slice(0, 4),
-      ['MiniMax-M2.5', 'DeepSeek-V3.1', 'Qwen3-235B', 'DeepSeek-V3.2']
+      ['MiniMax-M2.5', 'DeepSeek-V3.1', 'Qwen3-235B', 'Llama-4-Maverick-17B-128E-Instruct']
     )
   })
 
