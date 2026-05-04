@@ -4,10 +4,6 @@
   <img src="https://img.shields.io/npm/l/free-coding-models?color=76b900" alt="license">
   <img src="https://img.shields.io/badge/models-180-76b900?logo=nvidia" alt="models count">
   <img src="https://img.shields.io/badge/providers-16-blue" alt="providers count">
-  <br>
-  <img src="https://img.shields.io/badge/dependencies-1-76b900?logo=npm" alt="1 dependency">
-  <img src="https://img.shields.io/badge/provenance-sigstore-blueviolet?logo=signstore" alt="npm provenance">
-  <img src="https://img.shields.io/badge/supply_chain-verified-brightgreen" alt="supply chain verified">
 </p>
 
 <h1 align="center">free-coding-models</h1>
@@ -43,13 +39,15 @@ create a free account on one of the [providers](#-list-of-free-ai-providers)
   <a href="#️-model-licensing--commercial-use">⚖️ Licensing</a> •
   <a href="#-telemetry">📊 Telemetry</a> •
   <a href="#️-security--trust">🛡️ Security</a> •
-  <a href="#-support">📧 Support</a> •
-  <a href="#-license">📄 License</a> •
   <a href="#-other-free-ai-resources">🆓 Other Free AI Resources</a>
 </p>
 
 <p align="center">
   <img src="demo.gif" alt="free-coding-models demo" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://discord.gg/ZTNFHvvCkU"><img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white&style=for-the-badge" alt="Join our Discord"></a>
 </p>
 
 <p align="center">
@@ -469,6 +467,12 @@ Telemetry is enabled by default and can be disabled with any of the following:
 
 ## 🛡️ Security & Trust
 
+<p align="center">
+  <img src="https://img.shields.io/badge/dependencies-1-76b900?logo=npm" alt="1 dependency">
+  <img src="https://img.shields.io/badge/provenance-sigstore-blueviolet?logo=signstore" alt="npm provenance">
+  <img src="https://img.shields.io/badge/supply_chain-verified-brightgreen" alt="supply chain verified">
+</p>
+
 ### Supply Chain
 
 | Signal | Status |
@@ -501,18 +505,6 @@ Telemetry is enabled by default and can be disabled with any of the following:
 
 ---
 
-## 📧 Support
-
-[GitHub Issues](https://github.com/vava-nessa/free-coding-models/issues) · [Discord](https://discord.gg/ZTNFHvvCkU)
-
----
-
-## 📄 License
-
-MIT © [vava](https://github.com/vava-nessa)
-
----
-
 ## Star History
 
 <a href="https://www.star-history.com/?repos=vava-nessa%2Ffree-coding-models&type=timeline&logscale=&legend=top-left">
@@ -529,13 +521,22 @@ MIT © [vava](https://github.com/vava-nessa)
 
 <table align="center">
   <tr>
-    <td align="center"><a href="https://github.com/vava-nessa"><img src="https://avatars.githubusercontent.com/u/5466264?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="vava-nessa"><br><sub><b>vava-nessa</b></sub></a></td>
-    <td align="center"><a href="https://github.com/erwinh22"><img src="https://avatars.githubusercontent.com/u/6641858?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="erwinh22"><br><sub><b>erwinh22</b></sub></a></td>
-    <td align="center"><a href="https://github.com/whit3rabbit"><img src="https://avatars.githubusercontent.com/u/12357518?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="whit3rabbit"><br><sub><b>whit3rabbit</b></sub></a></td>
-    <td align="center"><a href="https://github.com/skylaweber"><img src="https://avatars.githubusercontent.com/u/172871734?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="skylaweber"><br><sub><b>skylaweber</b></sub></a></td>
-    <td align="center"><a href="https://github.com/PhucTruong-ctrl"><img src="https://github.com/PhucTruong-ctrl.png?s=80" width="80" height="80" style="border-radius:50%" alt="PhucTruong-ctrl"><br><sub><b>PhucTruong-ctrl</b></sub></a></td>
-    <td align="center"><a href="https://github.com/chindris-mihai-alexandru"><img src="https://avatars.githubusercontent.com/u/12643176?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="chindris-mihai-alexandru"><br><sub><b>chindris-mihai-alexandru</b></sub></a></td>
-    <td align="center"><a href="https://github.com/serajbaltu"><img src="https://avatars.githubusercontent.com/u/90699173?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="serajbaltu"><br><sub><b>serajbaltu</b></sub></a></td>
+    <td align="center" width="120"><a href="https://github.com/vava-nessa"><img src="https://avatars.githubusercontent.com/u/5466264?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="vava-nessa"></a></td>
+    <td align="center" width="120"><a href="https://github.com/erwinh22"><img src="https://avatars.githubusercontent.com/u/6641858?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="erwinh22"></a></td>
+    <td align="center" width="120"><a href="https://github.com/whit3rabbit"><img src="https://avatars.githubusercontent.com/u/12357518?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="whit3rabbit"></a></td>
+    <td align="center" width="120"><a href="https://github.com/skylaweber"><img src="https://avatars.githubusercontent.com/u/172871734?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="skylaweber"></a></td>
+    <td align="center" width="120"><a href="https://github.com/PhucTruong-ctrl"><img src="https://github.com/PhucTruong-ctrl.png?s=80" width="80" height="80" style="border-radius:50%" alt="PhucTruong-ctrl"></a></td>
+    <td align="center" width="120"><a href="https://github.com/chindris-mihai-alexandru"><img src="https://avatars.githubusercontent.com/u/12643176?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="chindris-mihai-alexandru"></a></td>
+    <td align="center" width="120"><a href="https://github.com/serajbaltu"><img src="https://avatars.githubusercontent.com/u/90699173?v=4&s=80" width="80" height="80" style="border-radius:50%" alt="serajbaltu"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/vava-nessa"><sub><b>vava-nessa</b></sub></a></td>
+    <td align="center"><a href="https://github.com/erwinh22"><sub><b>erwinh22</b></sub></a></td>
+    <td align="center"><a href="https://github.com/whit3rabbit"><sub><b>whit3rabbit</b></sub></a></td>
+    <td align="center"><a href="https://github.com/skylaweber"><sub><b>skylaweber</b></sub></a></td>
+    <td align="center"><a href="https://github.com/PhucTruong-ctrl"><sub><b>PhucTruong-ctrl</b></sub></a></td>
+    <td align="center"><a href="https://github.com/chindris-mihai-alexandru"><sub><b>chindris-mihai-alexandru</b></sub></a></td>
+    <td align="center"><a href="https://github.com/serajbaltu"><sub><b>serajbaltu</b></sub></a></td>
   </tr>
 </table>
 
