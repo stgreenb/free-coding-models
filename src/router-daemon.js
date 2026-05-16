@@ -30,17 +30,19 @@
  */
 
 import { createServer } from 'node:http'
+import { createReadStream, existsSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fork } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { appendFileSync, existsSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { sources } from '../sources.js'
+import { MODELS, sources } from '../sources.js'
 import {
   CONFIG_PATH,
   DEFAULT_ROUTER_SETTINGS,
   getApiKey,
+  isProviderEnabled,
   loadConfig,
   normalizeRouterConfig,
   saveConfig,
@@ -76,7 +78,7 @@ const MAX_SSE_CLIENTS = 10
 const MAX_CONCURRENT_REQUESTS = 50
 const MAX_PROBE_WINDOW = 20
 const TOKEN_FLUSH_INTERVAL_MS = 60000
-const CONFIG_RELOAD_INTERVAL_MS = 60000
+const CONFIG_RELOAD_INTERVAL_MS = 10000
 const STATS_RETENTION_DAYS = 90
 const TIER_ORDER = ['S+', 'S', 'A+', 'A', 'A-', 'B+', 'B', 'C']
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503])
@@ -199,6 +201,116 @@ function isLikelyHtmlText(text) {
 function isLikelyHtmlResponse(headers, text = '') {
   const contentType = getHeaderValue(headers, 'content-type').toLowerCase()
   return contentType.includes('text/html') || isLikelyHtmlText(text)
+}
+
+// ─── Web Dashboard Helpers ─────────────────────────────────────────────────────
+
+function maskApiKey(key) {
+  if (!key || typeof key !== 'string') return ''
+  if (key.length <= 8) return '••••••••'
+  return '••••••••' + key.slice(-4)
+}
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+}
+
+function getWebModelsPayload(runtime) {
+  const payload = []
+  for (const [providerKey, source] of Object.entries(sources)) {
+    if (!Array.isArray(source.models)) continue
+    for (const [modelId, label, tier, sweScore, ctx] of source.models) {
+      const key = modelKey(providerKey, modelId)
+      const window = runtime.probeWindows.get(key) || []
+      const pings = window.map((entry) => ({
+        ms: entry.latencyMs ?? null,
+        code: entry.code ?? (entry.ok ? '200' : 'ERR'),
+      }))
+      const avg = pings.length > 0
+        ? pings.reduce((sum, p) => sum + (p.ms || 0), 0) / pings.filter((p) => p.ms).length || 0
+        : null
+      const sorted = [...pings.filter((p) => p.ms).map((p) => p.ms)].sort((a, b) => a - b)
+      const p95 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.95)] : null
+      const jitter = sorted.length > 1
+        ? sorted.slice(1).reduce((sum, v, i) => sum + Math.abs(v - sorted[i]), 0) / (sorted.length - 1)
+        : null
+      const recentOk = pings.filter((p) => p.ms && p.code === '200').length
+      const stability = pings.length > 0 ? recentOk / pings.length : null
+      const verdict = avg === null ? '—' : avg < 1000 ? 'Excellent' : avg < 2000 ? 'Good' : avg < 4000 ? 'Fair' : 'Poor'
+      const uptime = pings.length > 0 ? recentOk / pings.length : null
+      const router = runtime.routerConfig()
+      const set = runtime.getSet(router.activeSet)
+      const inSet = set?.models?.some((m) => m.provider === providerKey && m.model === modelId) ?? false
+      payload.push({
+        idx: payload.length + 1,
+        modelId,
+        label,
+        tier,
+        sweScore,
+        ctx,
+        providerKey,
+        origin: source.name || providerKey,
+        status: pings.length === 0 ? 'pending' : recentOk > 0 ? 'up' : 'down',
+        httpCode: pings.length > 0 ? pings[pings.length - 1].code : null,
+        cliOnly: source.cliOnly || false,
+        zenOnly: source.zenOnly || false,
+        avg: avg === null ? null : Math.round(avg),
+        verdict,
+        uptime,
+        p95,
+        jitter: jitter === null ? null : Math.round(jitter),
+        stability: stability === null ? null : Math.round(stability * 100) / 100,
+        latestPing: pings.length > 0 ? pings[pings.length - 1].ms : null,
+        latestCode: pings.length > 0 ? pings[pings.length - 1].code : null,
+        pingHistory: pings.slice(-20),
+        pingCount: pings.length,
+        hasApiKey: !!runtime.getApiKeyForProvider(providerKey),
+        inRouterSet: inSet,
+      })
+    }
+  }
+  return payload
+}
+
+function getWebConfigPayload(runtime) {
+  const providers = {}
+  for (const [key, src] of Object.entries(sources)) {
+    const rawKey = runtime.getApiKeyForProvider(key)
+    providers[key] = {
+      name: src.name,
+      hasKey: !!rawKey,
+      maskedKey: rawKey ? maskApiKey(rawKey) : null,
+      enabled: isProviderEnabled(runtime.config, key),
+      modelCount: src.models?.length || 0,
+      cliOnly: src.cliOnly || false,
+    }
+  }
+  return { providers, totalModels: MODELS.length }
+}
+
+function serveWebStaticFile(res, pathname) {
+  const filePath = join(__dirname, '..', 'web', 'dist', pathname === '/' ? 'index.html' : pathname)
+  if (!existsSync(filePath)) {
+    const indexPath = join(__dirname, '..', 'web', 'dist', 'index.html')
+    if (!existsSync(indexPath)) {
+      res.writeHead(503, { 'Content-Type': 'text/plain' })
+      res.end('Web dashboard not built. Run: pnpm build')
+      return
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' })
+    res.end(readFileSync(indexPath))
+    return
+  }
+  const ext = filePath.slice(filePath.lastIndexOf('.'))
+  const ct = MIME_TYPES[ext] || 'application/octet-stream'
+  res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' })
+  res.end(readFileSync(filePath))
 }
 
 function buildUpstreamMeta(response, text = '') {
@@ -1638,6 +1750,76 @@ class RouterRuntime {
       }
       if (url.pathname === '/sets' || url.pathname.startsWith('/sets/')) {
         await this.handleSetsRequest(req, res, url, requestId)
+        return
+      }
+
+      // ─── Web Dashboard API endpoints ───────────────────────────────────────
+      if (req.method === 'GET' && url.pathname === '/api/models') {
+        sendJson(res, 200, getWebModelsPayload(this), { 'x-request-id': requestId })
+        return
+      }
+      if (req.method === 'GET' && url.pathname === '/api/config') {
+        sendJson(res, 200, getWebConfigPayload(this), { 'x-request-id': requestId })
+        return
+      }
+      if (req.method === 'GET' && url.pathname === '/api/events') {
+        if (this.sseClients.size >= MAX_SSE_CLIENTS) {
+          sendError(res, 503, 'Too many dashboard clients', 'service_unavailable', 'too_many_sse_clients', requestId)
+          return
+        }
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'x-request-id': requestId,
+        })
+        res.write(`data: ${JSON.stringify(getWebModelsPayload(this))}\n\n`)
+        this.sseClients.add(res)
+        req.on('close', () => this.sseClients.delete(res))
+        return
+      }
+      if (url.pathname === '/api/key/:provider' && req.method === 'GET') {
+        const providerKey = decodeURIComponent(url.pathname.replace('/api/key/', ''))
+        const rawKey = this.getApiKeyForProvider(providerKey)
+        sendJson(res, 200, { key: rawKey || null }, { 'x-request-id': requestId })
+        return
+      }
+      if (url.pathname === '/api/settings' && req.method === 'POST') {
+        const body = await readJsonBody(req)
+        if (body.apiKeys) {
+          for (const [key, value] of Object.entries(body.apiKeys)) {
+            if (value) {
+              if (!this.config.apiKeys) this.config.apiKeys = {}
+              this.config.apiKeys[key] = value
+            } else {
+              if (this.config.apiKeys) delete this.config.apiKeys[key]
+            }
+          }
+        }
+        if (body.providers) {
+          for (const [key, value] of Object.entries(body.providers)) {
+            if (!this.config.providers) this.config.providers = {}
+            if (!this.config.providers[key]) this.config.providers[key] = {}
+            this.config.providers[key].enabled = value.enabled !== false
+          }
+        }
+        try {
+          saveConfig(this.config)
+          sendJson(res, 200, { success: true }, { 'x-request-id': requestId })
+        } catch (err) {
+          sendError(res, 500, 'Failed to save config: ' + err.message, 'server_error', 'config_save_failed', requestId)
+        }
+        return
+      }
+
+      // ─── Static file serving for web dashboard ────────────────────────────────
+      if (url.pathname === '/' || url.pathname === '/index.html' ||
+          url.pathname === '/styles.css' || url.pathname === '/app.js' ||
+          url.pathname.startsWith('/assets/') ||
+          url.pathname.endsWith('.js') || url.pathname.endsWith('.css') ||
+          url.pathname.endsWith('.svg') || url.pathname.endsWith('.png') ||
+          url.pathname.endsWith('.ico')) {
+        serveWebStaticFile(res, url.pathname)
         return
       }
       if (url.pathname === '/v1/chat/completions' || url.pathname.match(/^\/v1\/sets\/[^/]+\/chat\/completions$/)) {

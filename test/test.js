@@ -2891,6 +2891,70 @@ describe('router daemon integration hardening', () => {
       assert.equal(health.probeMode, 'eco')
     })
   })
+
+  it('serves /api/models with model catalog data', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/api/models`)
+      const payload = await response.json()
+
+      assert.equal(response.status, 200)
+      assert.ok(Array.isArray(payload), '/api/models should return an array')
+      assert.ok(payload.length > 0, 'model array should not be empty')
+      const first = payload[0]
+      assert.ok(typeof first.modelId === 'string', 'modelId should be string')
+      assert.ok(typeof first.tier === 'string', 'tier should be string')
+      assert.ok(typeof first.providerKey === 'string', 'providerKey should be string')
+      assert.ok(typeof first.label === 'string', 'label should be string')
+      assert.ok(typeof first.hasApiKey === 'boolean', 'hasApiKey should be boolean')
+      assert.ok(first.hasOwnProperty('status'), 'should have status field')
+      assert.ok(first.hasOwnProperty('inRouterSet'), 'should have inRouterSet field')
+    })
+  })
+
+  it('serves /api/config with sanitized provider data', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/api/config`)
+      const payload = await response.json()
+
+      assert.equal(response.status, 200)
+      assert.ok(payload.providers, 'should have providers object')
+      assert.ok(typeof payload.totalModels === 'number', 'totalModels should be number')
+      for (const [key, provider] of Object.entries(payload.providers)) {
+        assert.ok(typeof provider.name === 'string', `${key} should have name`)
+        assert.ok(typeof provider.hasKey === 'boolean', `${key} should have hasKey boolean`)
+        assert.ok(provider.hasKey === false || provider.maskedKey?.includes('•'), `${key} should mask key`)
+        assert.ok(typeof provider.enabled === 'boolean', `${key} should have enabled boolean`)
+      }
+    })
+  })
+
+  it('serves static index.html for root path', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/`)
+      const text = await response.text()
+
+      assert.equal(response.status, 200)
+      assert.ok(text.includes('<!DOCTYPE html') || text.includes('<html'), 'should serve HTML')
+    })
+  })
+
+  it('serves /api/events as SSE stream', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 1000)
+      const response = await fetch(`${baseUrl}/api/events`, {
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+
+      assert.equal(response.status, 200)
+      assert.ok(response.headers.get('content-type')?.includes('text/event-stream'), 'should be SSE')
+    })
+  })
 })
 
 // ─── formatCtxWindow ─────────────────────────────────────────────────────────
