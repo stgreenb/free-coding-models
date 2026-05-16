@@ -2067,9 +2067,21 @@ export function createRouterRuntimeForTest({ config, port = 0, logger = null, to
 }
 
 function ensureRouterConfigForDaemon(config, skipSave = false) {
-  // 📖 Always rebuild from favorites or defaults — no more manual set management
-  const favSet = buildRouterSetFromFavorites(config)
-  const activeSet = favSet || buildDefaultRouterSet(config)
+  // 📖 Preserve existing named sets (e.g., created by sync-set) to avoid overwriting
+  // 📖 user-created configurations. Only rebuild from favorites/defaults when no
+  // 📖 sets exist at all (fresh install).
+  const existingSets = config.router?.sets || {}
+  const existingActiveSet = config.router?.activeSet || DEFAULT_ROUTER_SETTINGS.activeSet
+  const existingSetData = existingSets[existingActiveSet]
+  const hasExistingNamedSet = existingSetData && Array.isArray(existingSetData.models) && existingSetData.models.length > 0
+
+  let activeSet
+  if (hasExistingNamedSet) {
+    activeSet = { name: existingActiveSet, models: existingSetData.models, created: existingSetData.created }
+  } else {
+    const favSet = buildRouterSetFromFavorites(config)
+    activeSet = favSet || buildDefaultRouterSet(config)
+  }
   config.router = normalizeRouterConfig({
     ...DEFAULT_ROUTER_SETTINGS,
     enabled: true,
