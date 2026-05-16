@@ -148,17 +148,8 @@ If the active CLI tool is missing, FCM now catches it before launch, offers a ti
 ### Common scenarios
 
 ```bash
-# "I want the most reliable model right now"
-free-coding-models --fiable
-
-# "I want to configure Goose with an S-tier model"
-free-coding-models --goose --tier S
-
-# "I want NVIDIA's top models only"
-free-coding-models --origin nvidia --tier S
-
 # "I want the local web dashboard"
-free-coding-models --web
+free-coding-models --daemon
 
 # "I want one local endpoint that fails over between free models"
 free-coding-models --daemon-bg
@@ -174,7 +165,14 @@ free-coding-models --tier S --json | jq -r '.[0].modelId'
 free-coding-models --openclaw --origin groq
 ```
 
-When launching the web dashboard, `free-coding-models` prefers `http://localhost:3333`. If that port is already used by another app, it now auto-picks the next free local port and prints the exact URL to open.
+When launching the daemon (with `--daemon`), the web dashboard and router API are served from the same port. Configure tools with:
+
+| Field | Value |
+|-------|-------|
+| Router Base URL | `http://localhost:19280/v1` |
+| Dashboard URL | `http://localhost:19280/` |
+| Model | `fcm` |
+| API key | `fcm-local` |
 
 ### Smart Model Router
 
@@ -214,8 +212,19 @@ Router endpoints:
 | `GET /v1/models` | Return virtual models (`fcm`, `fcm:set-name`) |
 | `GET /health` | Daemon status JSON |
 | `GET /stats` | Routing, health, request log, and token stats |
-| `GET /stream/events` | Live SSE events for dashboard updates |
+| `GET /stream/events` | Live SSE events for router updates |
 | `POST /daemon/probe-mode` | Set probe mode with `{ "probeMode": "eco" | "balanced" | "aggressive" }` |
+
+**Web Dashboard endpoints** (served from the same port in `--daemon` mode):
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /` | Web dashboard HTML |
+| `GET /api/models` | All model data with latency stats |
+| `GET /api/config` | Provider config (keys masked) |
+| `GET /api/events` | Live SSE events for dashboard |
+| `GET /api/key/:provider` | Reveal full API key for provider |
+| `POST /api/settings` | Save API keys and provider toggles |
 
 Routing behavior:
 
