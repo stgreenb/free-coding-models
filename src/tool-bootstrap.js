@@ -315,6 +315,17 @@ export const TOOL_BOOTSTRAP_METADATA = {
       },
     },
   },
+  forgecode: {
+    binary: 'forge',
+    docsUrl: 'https://forgecode.dev',
+    install: {
+      default: {
+        shellCommand: 'npm install -g forgecode',
+        summary: 'Install ForgeCode globally via npm.',
+        note: 'After installation, run `forge` to start. Use `forge provider login` to set up credentials.',
+      },
+    },
+  },
 }
 
 export function getToolBootstrapMeta(mode) {

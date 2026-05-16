@@ -20,6 +20,7 @@
  *   📖 Hermes: uses `hermes config set` CLI commands + `hermes gateway restart` before launching `hermes chat`
  *   📖 Continue: writes ~/.continue/config.yaml with provider: openai + apiBase
  *   📖 Cline: writes ~/.cline/globalState.json with openai-compatible provider config
+ *   📖 ForgeCode: writes [[providers]] TOML block into ~/.forge/.forge.toml + sets [session] defaults
  *
  * @functions
  *   → `resolveLauncherModelId` — choose the provider-specific id for a launch
@@ -92,6 +93,7 @@ function getDefaultToolPaths(homeDir = homedir()) {
     hermesConfigPath: join(homeDir, '.hermes', 'config.yaml'),
     continueConfigPath: join(homeDir, '.continue', 'config.yaml'),
     clineConfigPath: join(homeDir, '.cline', 'globalState.json'),
+    forgeCodeConfigPath: join(homeDir, '.forge', '.forge.toml'),
   }
 }
 
@@ -517,6 +519,86 @@ function writeHermesConfig(model, apiKey, baseUrl, paths = getDefaultToolPaths()
   return { filePath: configPath, backupPath }
 }
 
+// 📖 writeForgeCodeConfig — write a managed [[providers]] block into ~/.forge/.forge.toml.
+// 📖 ForgeCode uses TOML config with [[providers]] entries for custom OpenAI-compatible endpoints.
+// 📖 Strategy:
+// 📖   1. Read the existing .forge.toml (if any)
+// 📖   2. Strip any previous FCM-managed provider block (delimited by comments)
+// 📖   3. Append a fresh [[providers]] block with the selected model's provider details
+// 📖   4. Update or insert [session] defaults to auto-select the model on next `forge` launch
+// 📖 The provider ID uses the `fcm-{providerKey}` namespace to avoid clobbering user-defined providers.
+// 📖 The API key is referenced via an env var (FCM_{PROVIDER}_API_KEY) and also set in the process env.
+function writeForgeCodeConfig(model, apiKey, baseUrl, providerKey, paths = getDefaultToolPaths()) {
+  const filePath = paths.forgeCodeConfigPath
+  const backupPath = backupIfExists(filePath)
+  const providerId = `fcm-${providerKey}`
+  const providerLabel = PROVIDER_METADATA[providerKey]?.label || sources[providerKey]?.name || providerKey
+  const secretEnvName = `FCM_${providerKey.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_API_KEY`
+
+  // 📖 Ensure the API key is available in env for ForgeCode to pick up
+  process.env[secretEnvName] = apiKey
+
+  // 📖 Build the provider's chat completions URL
+  const completionsUrl = baseUrl
+    ? (baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`)
+    : ''
+
+  // 📖 Read existing TOML content (if any)
+  let content = ''
+  if (existsSync(filePath)) {
+    content = readFileSync(filePath, 'utf8')
+  }
+
+  // 📖 Remove any previous FCM-managed provider block (between marker comments)
+  const markerStart = `# >>> FCM managed provider: ${providerId}`
+  const markerEnd = `# <<< FCM managed provider: ${providerId}`
+  const markerRegex = new RegExp(
+    `\\n?${markerStart.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?${markerEnd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n?`,
+    'g'
+  )
+  content = content.replace(markerRegex, '\n')
+
+  // 📖 Build a fresh [[providers]] TOML block
+  const providerBlock = [
+    '',
+    markerStart,
+    '[[providers]]',
+    `id = "${providerId}"`,
+    `url = "${completionsUrl}"`,
+    `api_key_vars = "${secretEnvName}"`,
+    'response_type = "OpenAI"',
+    'auth_methods = ["api_key"]',
+    markerEnd,
+  ].join('\n')
+
+  content = content.trimEnd() + '\n' + providerBlock + '\n'
+
+  // 📖 Update or insert [session] defaults so ForgeCode auto-selects this model
+  const sessionProviderLine = `provider_id = "${providerId}"`
+  const sessionModelLine = `model_id = "${model.modelId}"`
+
+  if (/^\[session\]/m.test(content)) {
+    // 📖 Replace existing provider_id/model_id under [session]
+    if (/^provider_id\s*=/m.test(content)) {
+      content = content.replace(/^provider_id\s*=.*$/m, sessionProviderLine)
+    } else {
+      content = content.replace(/^\[session\]/m, `[session]\n${sessionProviderLine}`)
+    }
+    if (/^model_id\s*=/m.test(content)) {
+      content = content.replace(/^model_id\s*=.*$/m, sessionModelLine)
+    } else {
+      content = content.replace(/^\[session\]/m, `[session]\n${sessionModelLine}`)
+    }
+  } else {
+    // 📖 No [session] block — append one
+    content = content.trimEnd() + '\n\n[session]\n' + sessionProviderLine + '\n' + sessionModelLine + '\n'
+  }
+
+  ensureDir(filePath)
+  writeFileSync(filePath, content)
+  return { filePath, backupPath }
+}
+
 // 📖 restartHermesGateway — restart the Hermes messaging gateway after config changes.
 // 📖 Non-blocking: if gateway is not running, this is a no-op.
 function restartHermesGateway() {
@@ -872,6 +954,19 @@ export function prepareExternalToolLaunch(mode, model, config, options = {}) {
     }
   }
 
+  if (mode === 'forgecode') {
+    const result = writeForgeCodeConfig(model, apiKey, baseUrl, model.providerKey, paths)
+    return {
+      command: 'forge',
+      args: [],
+      env,
+      apiKey,
+      baseUrl,
+      meta,
+      configArtifacts: [{ path: result.filePath, backupPath: result.backupPath, label: 'config' }],
+    }
+  }
+
   return {
     blocked: true,
     exitCode: 1,
@@ -975,6 +1070,11 @@ export async function startExternalTool(mode, model, config) {
 
   if (mode === 'copilot') {
     console.log(chalk.dim(`  📖 Copilot CLI configured with model: ${model.modelId}`))
+    return spawnCommand(resolveLaunchCommand(mode, launchPlan.command), launchPlan.args, launchPlan.env)
+  }
+
+  if (mode === 'forgecode') {
+    console.log(chalk.dim(`  📖 ForgeCode configured with model: ${model.modelId}`))
     return spawnCommand(resolveLaunchCommand(mode, launchPlan.command), launchPlan.args, launchPlan.env)
   }
 

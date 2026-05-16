@@ -1,10 +1,15 @@
-## [0.3.65] - 2026-05-06
+## [0.3.66] - 2026-05-16
 
-### Fixed
-
-- **Live Usable only filtering** — `Usable only` now refreshes continuously while pings run, so models enter the table as soon as they become usable and leave the table as soon as they stop being usable. The filter now reflects the current `UP` state and usable verdicts instead of staying stuck on the state from when the filter was toggled.
-- **Sticky favorites no longer bypass Usable only health** — Favorites can still stay visible across tier, provider, and text filters when sticky favorites mode is enabled, but `Usable only` now takes precedence. A favorite that times out, goes down, hits auth errors, or otherwise stops being usable is removed from the view like any other model.
+### Added
+- **ForgeCode Integration**: You can now seamlessly launch and install provider endpoints directly into ForgeCode's TOML config. Use the `--forgecode` flag to run it.
+- **GitHub Copilot CLI Support**: Added direct integration with GitHub Copilot CLI (`--copilot`), dynamically setting `COPILOT_*` environment variables for seamless Bring Your Own Key (BYOK) execution.
+- **Security Audit Report**: Added comprehensive security audit documentation from Jules.
 
 ### Changed
+- **NVIDIA NIM Model Catalog Update**: Removed 11 deprecated models and updated GLM to the new `glm5` to keep the catalog fresh and fully operational.
+- **README Optimization**: Refactored README layout and updated image sizes for a cleaner documentation experience.
+- **Testing Architecture Refactoring**: Replaced `agent-tui` with native `tmux` to streamline visual TUI testing.
 
-- **Safer cursor behavior during live filtering** — When live filtering removes the selected row, the TUI now clamps the cursor and scroll offset to the remaining visible rows so selection and launch behavior keep matching what is on screen.
+### Fixed
+- **Repository Maintenance**: Cleaned up obsolete tooling artifacts to maintain a bloat-free codebase.
+- **Dependencies**: Bumped internal UI framework tools (React `19.2.6`, Vite `8.0.13`).

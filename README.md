@@ -250,6 +250,7 @@ Routing behavior:
 | `--rovo` | 🦘 Rovo Dev CLI |
 | `--gemini` | ♊ Gemini CLI |
 | `--copilot` | 🤖 Copilot CLI |
+| `--forgecode` | 🔥 ForgeCode |
 
 Press **`Z`** in the TUI to cycle between tools without restarting.
 

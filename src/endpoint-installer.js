@@ -52,7 +52,7 @@ import { getToolMeta } from './tool-metadata.js'
 const DIRECT_INSTALL_UNSUPPORTED_PROVIDERS = new Set(['replicate', 'zai', 'rovo', 'gemini', 'opencode-zen'])
 // 📖 Install Endpoints only lists tools whose persisted config shape is actually supported here.
 // 📖 Claude Code, Codex, and Gemini stay out while their dedicated bridges are being rebuilt.
-const INSTALL_TARGET_MODES = ['opencode', 'opencode-desktop', 'opencode-web', 'openclaw', 'kilo', 'crush', 'goose', 'pi', 'aider', 'qwen', 'openhands', 'amp', 'hermes', 'continue', 'cline', 'fcm_router']
+const INSTALL_TARGET_MODES = ['opencode', 'opencode-desktop', 'opencode-web', 'openclaw', 'kilo', 'crush', 'goose', 'pi', 'aider', 'qwen', 'openhands', 'amp', 'hermes', 'continue', 'cline', 'forgecode', 'fcm_router']
 
 function getDefaultPaths() {
   const home = homedir()
@@ -67,6 +67,7 @@ function getDefaultPaths() {
     aiderConfigPath: join(home, '.aider.conf.yml'),
     ampConfigPath: join(home, '.config', 'amp', 'settings.json'),
     qwenConfigPath: join(home, '.qwen', 'settings.json'),
+    forgeCodeConfigPath: join(home, '.forge', '.forge.toml'),
   }
 }
 
@@ -526,6 +527,65 @@ function installIntoEnvBasedTool(providerKey, models, apiKey, toolMode) {
   return { path: envFilePath, backupPath, providerId, modelCount: models.length }
 }
 
+// 📖 installIntoForgeCode: writes a managed [[providers]] block into ~/.forge/.forge.toml.
+// 📖 ForgeCode uses TOML config with [[providers]] entries for custom OpenAI-compatible endpoints.
+// 📖 Each provider gets one [[providers]] entry with the model catalog noted in comments.
+// 📖 The API key is referenced via an env var so ForgeCode picks it up at runtime.
+function installIntoForgeCode(providerKey, models, apiKey, paths) {
+  const filePath = paths.forgeCodeConfigPath
+  const providerId = getManagedProviderId(providerKey)
+  const secretEnvName = `FCM_${providerKey.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_API_KEY`
+  const baseUrl = resolveProviderBaseUrl(providerKey)
+
+  if (!baseUrl) {
+    throw new Error(`Cannot resolve base URL for ${getProviderLabel(providerKey)}`)
+  }
+
+  // 📖 Ensure the API key is in env for ForgeCode to use
+  process.env[secretEnvName] = apiKey
+
+  const completionsUrl = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`
+
+  // 📖 Read existing content
+  let content = ''
+  if (existsSync(filePath)) {
+    content = readFileSync(filePath, 'utf8')
+  }
+
+  // 📖 Remove any previous FCM-managed provider block for this provider
+  const markerStart = `# >>> FCM managed provider: ${providerId}`
+  const markerEnd = `# <<< FCM managed provider: ${providerId}`
+  const markerRegex = new RegExp(
+    `\\n?${markerStart.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?${markerEnd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n?`,
+    'g'
+  )
+  content = content.replace(markerRegex, '\n')
+
+  // 📖 Build a fresh [[providers]] TOML block with model catalog comments
+  const modelComments = models.map(m => `# 📖 Model: ${m.label} (${m.modelId}) — ${m.tier}`).join('\n')
+  const providerBlock = [
+    '',
+    markerStart,
+    `# 📖 Provider: ${getManagedProviderLabel(providerKey)} (${models.length} models)`,
+    modelComments,
+    '[[providers]]',
+    `id = "${providerId}"`,
+    `url = "${completionsUrl}"`,
+    `api_key_vars = "${secretEnvName}"`,
+    'response_type = "OpenAI"',
+    'auth_methods = ["api_key"]',
+    markerEnd,
+  ].join('\n')
+
+  content = content.trimEnd() + '\n' + providerBlock + '\n'
+
+  ensureDirFor(filePath)
+  const backupPath = backupIfExists(filePath)
+  writeFileSync(filePath, content)
+
+  return { path: filePath, backupPath, providerId, modelCount: models.length }
+}
+
 // 📖 installIntoFcmRouter: adds provider endpoints to the running FCM Router daemon
 // 📖 via the /sets API so the router can use them for failover routing.
 // 📖 Uses the daemon's expected schema: { provider, model, priority } per model entry.
@@ -605,6 +665,8 @@ export function installProviderEndpoints(config, providerKey, toolMode, options 
     installResult = installIntoEnvBasedTool(providerKey, models, apiKey, canonicalToolMode, paths)
   } else if (canonicalToolMode === 'fcm_router') {
     installResult = installIntoFcmRouter(providerKey, models, apiKey)
+  } else if (canonicalToolMode === 'forgecode') {
+    installResult = installIntoForgeCode(providerKey, models, apiKey, paths)
   } else {
     throw new Error(`Unsupported install target: ${toolMode}`)
   }

@@ -24,6 +24,7 @@ Start the TUI pre-configured to a specific tool. Press `Enter` on a model to aut
 | `--amp` | Amp | Writes model to `~/.config/amp/settings.json` and launches `amp` |
 | `--pi` | Pi | Writes model to `~/.pi/agent/settings.json` and launches `pi` |
 | `--copilot` | GitHub Copilot CLI | Sets `COPILOT_*` env vars to use the selected provider/model via BYOK |
+| `--forgecode` | ForgeCode | Writes managed provider to `~/.forge/.forge.toml` and launches `forge` |
 
 ---
 
