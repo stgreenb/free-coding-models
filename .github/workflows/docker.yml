@@ -33,20 +33,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
+          corepack: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build web app
         run: pnpm build:web
+
+      - name: Verify pnpm version
+        run: pnpm --version
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
