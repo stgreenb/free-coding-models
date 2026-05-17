@@ -17,10 +17,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
- env:
-   REGISTRY: ghcr.io
-   IMAGE_NAME: ${{ github.repository }}
-   LOGIN_PASSWORD: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  LOGIN_PASSWORD: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
 
 jobs:
   build-and-push:
