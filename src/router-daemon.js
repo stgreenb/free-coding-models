@@ -1833,10 +1833,14 @@ class RouterRuntime {
         }
         try {
           saveConfig(this.config)
-          sendJson(res, 200, { success: true }, { 'x-request-id': requestId })
         } catch (err) {
           sendError(res, 500, 'Failed to save config: ' + err.message, 'server_error', 'config_save_failed', requestId)
+          return
         }
+        if (body.apiKeys) {
+          void this.runProbeBurst()
+        }
+        sendJson(res, 200, { success: true }, { 'x-request-id': requestId })
         return
       }
 
