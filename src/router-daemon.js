@@ -1007,6 +1007,24 @@ class RouterRuntime {
     }))
   }
 
+  findBestModelForProviderInSources(providerKey) {
+    const source = sources[providerKey]
+    if (!source || !Array.isArray(source.models)) return null
+    let best = null
+    let bestTier = Infinity
+    for (const modelEntry of source.models) {
+      const [modelId, , tier] = modelEntry
+      if (!modelId || !tier) continue
+      const tierIdx = TIER_ORDER.indexOf(tier)
+      if (tierIdx < 0) continue
+      if (tierIdx < bestTier) {
+        bestTier = tierIdx
+        best = modelId
+      }
+    }
+    return best
+  }
+
   addRequestLog(entry) {
     this.requestLog.unshift({ ...entry, at: nowIso() })
     while (this.requestLog.length > MAX_REQUEST_LOG) this.requestLog.pop()
@@ -1838,6 +1856,30 @@ class RouterRuntime {
           return
         }
         if (body.apiKeys) {
+          for (const [pk] of Object.entries(body.apiKeys)) {
+            if (typeof pk === 'string' && pk) {
+              const router = this.routerConfig()
+              const set = this.getSet()
+              if (set && router.activeSet) {
+                const newModel = this.findBestModelForProviderInSources(pk)
+                if (newModel) {
+                  const router = this.routerConfig()
+                  const nextSets = { ...router.sets }
+                  const activeSetData = nextSets[router.activeSet]
+                  if (!activeSetData?.models?.some((m) => m.provider === pk)) {
+                    nextSets[router.activeSet] = {
+                      ...activeSetData,
+                      models: [
+                        ...(activeSetData?.models || []),
+                        { provider: pk, model: newModel, priority: (activeSetData?.models?.length || 0) + 1 },
+                      ],
+                    }
+                    this.setRouterConfig({ ...router, sets: nextSets })
+                  }
+                }
+              }
+            }
+          }
           void this.runProbeBurst()
         }
         sendJson(res, 200, { success: true }, { 'x-request-id': requestId })
