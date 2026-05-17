@@ -240,7 +240,7 @@ function getWebModelsPayload(runtime) {
       const jitter = sorted.length > 1
         ? sorted.slice(1).reduce((sum, v, i) => sum + Math.abs(v - sorted[i]), 0) / (sorted.length - 1)
         : null
-      const recentOk = pings.filter((p) => p.ms && p.code === '200').length
+      const recentOk = pings.filter((p) => p.ms && p.code == 200).length
       const stability = pings.length > 0 ? recentOk / pings.length : null
       const verdict = avg === null ? '—' : avg < 1000 ? 'Excellent' : avg < 2000 ? 'Good' : avg < 4000 ? 'Fair' : 'Poor'
       const uptime = pings.length > 0 ? recentOk / pings.length : null
@@ -294,9 +294,35 @@ function getWebConfigPayload(runtime) {
   return { providers, totalModels: MODELS.length }
 }
 
-function serveWebStaticFile(res, pathname) {
+function serveWebStaticFile(res, pathname, requestId) {
   const filePath = join(__dirname, '..', 'web', 'dist', pathname === '/' ? 'index.html' : pathname)
-  if (!existsSync(filePath)) {
+
+  // Check if path exists and is a file
+  let stats
+  try {
+    stats = statSync(filePath)
+    if (stats.isDirectory()) {
+      // If it's a directory, try serving index.html inside it (for /assets/ -> /assets/index.html)
+      const dirIndex = join(filePath, 'index.html')
+      if (existsSync(dirIndex) && statSync(dirIndex).isFile()) {
+        const ext = dirIndex.slice(dirIndex.lastIndexOf('.'))
+        const ct = MIME_TYPES[ext] || 'application/octet-stream'
+        res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' })
+        res.end(readFileSync(dirIndex))
+        return
+      }
+      // Directory without index.html -> treat as not found to trigger SPA fallback or 404
+      throw { code: 'ENOENT' }
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      sendError(res, 500, 'Failed to read static file', 'server_error', 'static_file_read_failed', requestId)
+      return
+    }
+  }
+
+  // If file doesn't exist, fallback to SPA index.html
+  if (!existsSync(filePath) || stats?.isDirectory()) {
     const indexPath = join(__dirname, '..', 'web', 'dist', 'index.html')
     if (!existsSync(indexPath)) {
       res.writeHead(503, { 'Content-Type': 'text/plain' })
@@ -307,6 +333,8 @@ function serveWebStaticFile(res, pathname) {
     res.end(readFileSync(indexPath))
     return
   }
+
+  // Serve the file
   const ext = filePath.slice(filePath.lastIndexOf('.'))
   const ct = MIME_TYPES[ext] || 'application/octet-stream'
   res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' })
@@ -1812,16 +1840,16 @@ class RouterRuntime {
         return
       }
 
-      // ─── Static file serving for web dashboard ────────────────────────────────
-      if (url.pathname === '/' || url.pathname === '/index.html' ||
-          url.pathname === '/styles.css' || url.pathname === '/app.js' ||
-          url.pathname.startsWith('/assets/') ||
-          url.pathname.endsWith('.js') || url.pathname.endsWith('.css') ||
-          url.pathname.endsWith('.svg') || url.pathname.endsWith('.png') ||
-          url.pathname.endsWith('.ico')) {
-        serveWebStaticFile(res, url.pathname)
-        return
-      }
+       // ─── Static file serving for web dashboard ────────────────────────────────
+       if (url.pathname === '/' || url.pathname === '/index.html' ||
+           url.pathname === '/styles.css' || url.pathname === '/app.js' ||
+           url.pathname.startsWith('/assets/') ||
+           url.pathname.endsWith('.js') || url.pathname.endsWith('.css') ||
+           url.pathname.endsWith('.svg') || url.pathname.endsWith('.png') ||
+           url.pathname.endsWith('.ico')) {
+         serveWebStaticFile(res, url.pathname, requestId)
+         return
+       }
       if (url.pathname === '/v1/chat/completions' || url.pathname.match(/^\/v1\/sets\/[^/]+\/chat\/completions$/)) {
         if (req.method !== 'POST') {
           sendError(res, 405, 'Method not allowed', 'invalid_request_error', 'method_not_allowed', requestId, { allowed: ['POST'] })
