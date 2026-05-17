@@ -2126,23 +2126,23 @@ function buildRouterSetFromFavorites(config) {
   }
 }
 
-function listenOnPort(server, port) {
+function listenOnPort(server, port, host = '127.0.0.1') {
   return new Promise((resolve, reject) => {
     const onError = (error) => {
-      server.off('listening', onListening)
+      server.off('error', onError)
       reject(error)
     }
     const onListening = () => {
-      server.off('error', onError)
+      server.off('listening', onListening)
       resolve(port)
     }
     server.once('error', onError)
     server.once('listening', onListening)
-    server.listen(port, '127.0.0.1')
+    server.listen(port, host)
   })
 }
 
-async function listenWithFallback(server, preferredPort, logger) {
+async function listenWithFallback(server, preferredPort, logger, host = '127.0.0.1') {
   const { defaultPort, maxPort } = getRouterPortRange()
   const start = Math.max(1, preferredPort || defaultPort)
   const candidates = []
@@ -2153,7 +2153,7 @@ async function listenWithFallback(server, preferredPort, logger) {
   let lastError = null
   for (const port of candidates) {
     try {
-      await listenOnPort(server, port)
+      await listenOnPort(server, port, host)
       return port
     } catch (error) {
       lastError = error
@@ -2171,13 +2171,14 @@ export async function runRouterDaemon() {
   runtime.installProcessSafety()
   const server = createServer((req, res) => void runtime.handleHttp(req, res))
   runtime.server = server
-  const port = await listenWithFallback(server, router.port, logger)
+  const host = process.env.FCM_HOST || '127.0.0.1'
+  const port = await listenWithFallback(server, router.port, logger, host)
   runtime.port = port
   runtime.config.router.port = port
   saveConfig(runtime.config)
   try { writeFileSync(ROUTER_PID_PATH, String(process.pid), { mode: 0o600 }) } catch (error) { logger.warn('PID file write failed', { error: error.message }) }
   try { writeFileSync(ROUTER_PORT_PATH, String(port), { mode: 0o600 }) } catch (error) { logger.warn('Port file write failed', { error: error.message }) }
-  logger.info('Router daemon started', { pid: process.pid, port, activeSet: runtime.routerConfig().activeSet })
+  logger.info('Router daemon started', { pid: process.pid, port, host, activeSet: runtime.routerConfig().activeSet })
   void sendUsageTelemetry(runtime.config, {}, {
     event: 'app_daemon_start',
     mode: 'daemon',
