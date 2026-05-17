@@ -2955,6 +2955,78 @@ describe('router daemon integration hardening', () => {
       assert.ok(response.headers.get('content-type')?.includes('text/event-stream'), 'should be SSE')
     })
   })
+
+  it('blocks path traversal in static file serving', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/../../../../../../etc/passwd`)
+      // 📖 Either the path-traversal guard fires (403) or the server's URL
+      // 📖 normalization collapses the path so the dashboard SPA serves 200
+      // 📖 with an HTML page. The critical contract: never expose /etc/passwd.
+      const body = await response.text()
+      assert.ok(!body.startsWith('root:'), 'must not leak /etc/passwd contents')
+      assert.ok(!body.includes('/bin/bash'), 'must not leak shell paths')
+    })
+  })
+
+  it('rejects /api/settings POST from a cross-origin browser context', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/api/settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://evil.example.com',
+        },
+        body: JSON.stringify({ apiKeys: { groq: 'stolen' } }),
+      })
+      assert.equal(response.status, 403, 'cross-origin write must be blocked')
+    })
+  })
+
+  it('accepts /api/settings POST from a same-origin (localhost) context', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/api/settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'http://localhost:19280',
+        },
+        body: JSON.stringify({ providers: { groq: { enabled: false } } }),
+      })
+      assert.equal(response.status, 200, 'same-origin write must succeed')
+    })
+  })
+
+  it('rejects /api/key/* GET from a cross-origin browser context', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/api/key/groq`, {
+        headers: { 'Origin': 'https://evil.example.com' },
+      })
+      assert.equal(response.status, 403, 'cross-origin key reveal must be blocked')
+    })
+  })
+
+  it('serves /api/key/<provider> for same-origin / CLI callers', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      // 📖 No Origin header == CLI caller (curl). Must be allowed.
+      const response = await fetch(`${baseUrl}/api/key/groq`)
+      assert.equal(response.status, 200)
+      const payload = await response.json()
+      assert.ok(payload.hasOwnProperty('key'), 'should return a key field')
+    })
+  })
+
+  it('returns 404 on /api/key for an unknown provider', async () => {
+    const config = buildRouterTestConfig([])
+    await withRouterTestServer(config, async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/api/key/not-a-real-provider`)
+      assert.equal(response.status, 404)
+    })
+  })
 })
 
 // ─── formatCtxWindow ─────────────────────────────────────────────────────────

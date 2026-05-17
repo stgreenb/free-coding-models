@@ -30,8 +30,8 @@
  */
 
 import { createServer } from 'node:http'
-import { createReadStream, existsSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join, resolve as resolvePath } from 'node:path'
 import { fork } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { appendFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
@@ -211,6 +211,37 @@ function maskApiKey(key) {
   return '••••••••' + key.slice(-4)
 }
 
+// 📖 Same-origin / loopback check for state-changing or secret-revealing
+// 📖 endpoints. Blocks CSRF from malicious tabs and key exfiltration from
+// 📖 cross-origin scripts. Plain CLI calls (curl/fetch without Origin) are
+// 📖 allowed because they cannot be triggered by a browser context.
+function isLoopbackHostname(hostname) {
+  if (!hostname) return false
+  const h = hostname.toLowerCase()
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1' || h.endsWith('.localhost')
+}
+
+function isSameOriginOrLocal(req) {
+  const origin = req.headers.origin
+  const referer = req.headers.referer || req.headers.referrer
+  const candidates = []
+  if (typeof origin === 'string' && origin && origin !== 'null') candidates.push(origin)
+  else if (typeof referer === 'string' && referer) candidates.push(referer)
+
+  // 📖 No Origin/Referer → non-browser caller (curl, native app). Allow.
+  if (candidates.length === 0) return true
+
+  for (const c of candidates) {
+    try {
+      const parsed = new URL(c)
+      if (isLoopbackHostname(parsed.hostname)) return true
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -222,31 +253,38 @@ const MIME_TYPES = {
 }
 
 function getWebModelsPayload(runtime) {
+  // 📖 Hoist router + active set lookups out of the per-model loop so we
+  // 📖 don't re-resolve them ~200 times per request.
+  const router = runtime.routerConfig()
+  const activeSet = runtime.getSet(router.activeSet)
+  const inSetIndex = new Set(
+    (activeSet?.models || []).map((m) => `${m.provider}::${m.model}`),
+  )
+
   const payload = []
   for (const [providerKey, source] of Object.entries(sources)) {
     if (!Array.isArray(source.models)) continue
+    const hasApiKey = !!runtime.getApiKeyForProvider(providerKey)
     for (const [modelId, label, tier, sweScore, ctx] of source.models) {
       const key = modelKey(providerKey, modelId)
-      const window = runtime.probeWindows.get(key) || []
-      const pings = window.map((entry) => ({
+      const probeWindow = runtime.probeWindows.get(key) || []
+      const pings = probeWindow.map((entry) => ({
         ms: entry.latencyMs ?? null,
         code: entry.code ?? (entry.ok ? '200' : 'ERR'),
       }))
-      const avg = pings.length > 0
-        ? pings.reduce((sum, p) => sum + (p.ms || 0), 0) / pings.filter((p) => p.ms).length || 0
+      const msList = pings.map((p) => p.ms).filter((ms) => typeof ms === 'number' && ms > 0)
+      const avg = msList.length > 0
+        ? msList.reduce((sum, ms) => sum + ms, 0) / msList.length
         : null
-      const sorted = [...pings.filter((p) => p.ms).map((p) => p.ms)].sort((a, b) => a - b)
+      const sorted = [...msList].sort((a, b) => a - b)
       const p95 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.95)] : null
       const jitter = sorted.length > 1
         ? sorted.slice(1).reduce((sum, v, i) => sum + Math.abs(v - sorted[i]), 0) / (sorted.length - 1)
         : null
-      const recentOk = pings.filter((p) => p.ms && p.code == 200).length
+      const recentOk = pings.filter((p) => typeof p.ms === 'number' && String(p.code) === '200').length
       const stability = pings.length > 0 ? recentOk / pings.length : null
       const verdict = avg === null ? '—' : avg < 1000 ? 'Excellent' : avg < 2000 ? 'Good' : avg < 4000 ? 'Fair' : 'Poor'
       const uptime = pings.length > 0 ? recentOk / pings.length : null
-      const router = runtime.routerConfig()
-      const set = runtime.getSet(router.activeSet)
-      const inSet = set?.models?.some((m) => m.provider === providerKey && m.model === modelId) ?? false
       payload.push({
         idx: payload.length + 1,
         modelId,
@@ -270,8 +308,8 @@ function getWebModelsPayload(runtime) {
         latestCode: pings.length > 0 ? pings[pings.length - 1].code : null,
         pingHistory: pings.slice(-20),
         pingCount: pings.length,
-        hasApiKey: !!runtime.getApiKeyForProvider(providerKey),
-        inRouterSet: inSet,
+        hasApiKey,
+        inRouterSet: inSetIndex.has(`${providerKey}::${modelId}`),
       })
     }
   }
@@ -294,51 +332,69 @@ function getWebConfigPayload(runtime) {
   return { providers, totalModels: MODELS.length }
 }
 
-function serveWebStaticFile(res, pathname, requestId) {
-  const filePath = join(__dirname, '..', 'web', 'dist', pathname === '/' ? 'index.html' : pathname)
+const WEB_DIST_DIR = resolvePath(__dirname, '..', 'web', 'dist')
 
-  // Check if path exists and is a file
-  let stats
-  try {
-    stats = statSync(filePath)
-    if (stats.isDirectory()) {
-      // If it's a directory, try serving index.html inside it (for /assets/ -> /assets/index.html)
-      const dirIndex = join(filePath, 'index.html')
-      if (existsSync(dirIndex) && statSync(dirIndex).isFile()) {
-        const ext = dirIndex.slice(dirIndex.lastIndexOf('.'))
-        const ct = MIME_TYPES[ext] || 'application/octet-stream'
-        res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' })
-        res.end(readFileSync(dirIndex))
-        return
-      }
-      // Directory without index.html -> treat as not found to trigger SPA fallback or 404
-      throw { code: 'ENOENT' }
-    }
-  } catch (err) {
-    if (err.code !== 'ENOENT') {
-      sendError(res, 500, 'Failed to read static file', 'server_error', 'static_file_read_failed', requestId)
-      return
-    }
+function serveStaticFromDist(res, absPath) {
+  const ext = absPath.slice(absPath.lastIndexOf('.'))
+  const ct = MIME_TYPES[ext] || 'application/octet-stream'
+  res.writeHead(200, {
+    'Content-Type': ct,
+    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+    'X-Content-Type-Options': 'nosniff',
+  })
+  res.end(readFileSync(absPath))
+}
+
+function serveSpaIndex(res) {
+  const indexPath = resolvePath(WEB_DIST_DIR, 'index.html')
+  if (!existsSync(indexPath)) {
+    res.writeHead(503, { 'Content-Type': 'text/plain' })
+    res.end('Web dashboard not built. Run: pnpm build')
+    return
   }
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+  })
+  res.end(readFileSync(indexPath))
+}
 
-  // If file doesn't exist, fallback to SPA index.html
-  if (!existsSync(filePath) || stats?.isDirectory()) {
-    const indexPath = join(__dirname, '..', 'web', 'dist', 'index.html')
-    if (!existsSync(indexPath)) {
-      res.writeHead(503, { 'Content-Type': 'text/plain' })
-      res.end('Web dashboard not built. Run: pnpm build')
-      return
-    }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' })
-    res.end(readFileSync(indexPath))
+function serveWebStaticFile(res, pathname, requestId) {
+  // 📖 Resolve to an absolute path and verify it stays inside WEB_DIST_DIR.
+  // 📖 Without this, `pathname` like `/../../etc/passwd` escapes the dist root.
+  const requested = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '')
+  const candidate = resolvePath(WEB_DIST_DIR, requested)
+  if (candidate !== WEB_DIST_DIR && !candidate.startsWith(WEB_DIST_DIR + '/')) {
+    sendError(res, 403, 'Forbidden', 'invalid_request_error', 'path_traversal_blocked', requestId)
     return
   }
 
-  // Serve the file
-  const ext = filePath.slice(filePath.lastIndexOf('.'))
-  const ct = MIME_TYPES[ext] || 'application/octet-stream'
-  res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' })
-  res.end(readFileSync(filePath))
+  let stats
+  try {
+    stats = statSync(candidate)
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      // 📖 SPA fallback: unknown route → serve index.html so client-side routing wins.
+      serveSpaIndex(res)
+      return
+    }
+    sendError(res, 500, 'Failed to read static file', 'server_error', 'static_file_read_failed', requestId)
+    return
+  }
+
+  if (stats.isDirectory()) {
+    const dirIndex = resolvePath(candidate, 'index.html')
+    if (dirIndex.startsWith(WEB_DIST_DIR + '/') && existsSync(dirIndex)) {
+      serveStaticFromDist(res, dirIndex)
+      return
+    }
+    // 📖 Directory without index.html → fall back to SPA root.
+    serveSpaIndex(res)
+    return
+  }
+
+  serveStaticFromDist(res, candidate)
 }
 
 function buildUpstreamMeta(response, text = '') {
@@ -1824,13 +1880,29 @@ class RouterRuntime {
         req.on('close', () => this.sseClients.delete(res))
         return
       }
-      if (url.pathname === '/api/key/:provider' && req.method === 'GET') {
-        const providerKey = decodeURIComponent(url.pathname.replace('/api/key/', ''))
+      if (req.method === 'GET' && url.pathname.startsWith('/api/key/')) {
+        // 📖 Reveals raw API keys — same-origin only to prevent malicious sites
+        // 📖 from exfiltrating provider credentials via XHR/fetch.
+        if (!isSameOriginOrLocal(req)) {
+          sendError(res, 403, 'Forbidden cross-origin request', 'invalid_request_error', 'forbidden_origin', requestId)
+          return
+        }
+        const providerKey = decodeURIComponent(url.pathname.slice('/api/key/'.length))
+        if (!providerKey || !sources[providerKey]) {
+          sendError(res, 404, 'Unknown provider', 'invalid_request_error', 'unknown_provider', requestId)
+          return
+        }
         const rawKey = this.getApiKeyForProvider(providerKey)
         sendJson(res, 200, { key: rawKey || null }, { 'x-request-id': requestId })
         return
       }
-      if (url.pathname === '/api/settings' && req.method === 'POST') {
+      if (req.method === 'POST' && url.pathname === '/api/settings') {
+        // 📖 Writes API keys + provider toggles — same-origin only to block
+        // 📖 CSRF-style writes from malicious browser tabs.
+        if (!isSameOriginOrLocal(req)) {
+          sendError(res, 403, 'Forbidden cross-origin request', 'invalid_request_error', 'forbidden_origin', requestId)
+          return
+        }
         const body = await readJsonBody(req)
         if (body.apiKeys) {
           for (const [key, value] of Object.entries(body.apiKeys)) {
@@ -1856,29 +1928,22 @@ class RouterRuntime {
           return
         }
         if (body.apiKeys) {
-          for (const [pk] of Object.entries(body.apiKeys)) {
-            if (typeof pk === 'string' && pk) {
-              const router = this.routerConfig()
-              const set = this.getSet()
-              if (set && router.activeSet) {
-                const newModel = this.findBestModelForProviderInSources(pk)
-                if (newModel) {
-                  const router = this.routerConfig()
-                  const nextSets = { ...router.sets }
-                  const activeSetData = nextSets[router.activeSet]
-                  if (!activeSetData?.models?.some((m) => m.provider === pk)) {
-                    nextSets[router.activeSet] = {
-                      ...activeSetData,
-                      models: [
-                        ...(activeSetData?.models || []),
-                        { provider: pk, model: newModel, priority: (activeSetData?.models?.length || 0) + 1 },
-                      ],
-                    }
-                    this.setRouterConfig({ ...router, sets: nextSets })
-                  }
-                }
-              }
-            }
+          for (const pk of Object.keys(body.apiKeys)) {
+            if (typeof pk !== 'string' || !pk) continue
+            const newModel = this.findBestModelForProviderInSources(pk)
+            if (!newModel) continue
+            const router = this.routerConfig()
+            if (!router.activeSet) continue
+            const activeSetData = router.sets?.[router.activeSet]
+            if (!activeSetData || activeSetData.models?.some((m) => m.provider === pk)) continue
+            const nextModels = [
+              ...(activeSetData.models || []),
+              { provider: pk, model: newModel, priority: (activeSetData.models?.length || 0) + 1 },
+            ]
+            this.setRouterConfig({
+              ...router,
+              sets: { ...router.sets, [router.activeSet]: { ...activeSetData, models: nextModels } },
+            })
           }
           void this.runProbeBurst()
         }
@@ -1886,16 +1951,18 @@ class RouterRuntime {
         return
       }
 
-       // ─── Static file serving for web dashboard ────────────────────────────────
-       if (url.pathname === '/' || url.pathname === '/index.html' ||
-           url.pathname === '/styles.css' || url.pathname === '/app.js' ||
-           url.pathname.startsWith('/assets/') ||
-           url.pathname.endsWith('.js') || url.pathname.endsWith('.css') ||
-           url.pathname.endsWith('.svg') || url.pathname.endsWith('.png') ||
-           url.pathname.endsWith('.ico')) {
-         serveWebStaticFile(res, url.pathname, requestId)
-         return
-       }
+      // ─── Static file serving for web dashboard ────────────────────────────────
+      if (req.method === 'GET' && (
+        url.pathname === '/' || url.pathname === '/index.html' ||
+        url.pathname === '/styles.css' || url.pathname === '/app.js' ||
+        url.pathname.startsWith('/assets/') ||
+        url.pathname.endsWith('.js') || url.pathname.endsWith('.css') ||
+        url.pathname.endsWith('.svg') || url.pathname.endsWith('.png') ||
+        url.pathname.endsWith('.ico')
+      )) {
+        serveWebStaticFile(res, url.pathname, requestId)
+        return
+      }
       if (url.pathname === '/v1/chat/completions' || url.pathname.match(/^\/v1\/sets\/[^/]+\/chat\/completions$/)) {
         if (req.method !== 'POST') {
           sendError(res, 405, 'Method not allowed', 'invalid_request_error', 'method_not_allowed', requestId, { allowed: ['POST'] })
